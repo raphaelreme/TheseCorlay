@@ -45,6 +45,16 @@ class Layers:
 
 
     def set_fixed(self, fixed):
+        """Fixed has to be a boolean or a ndarray. The sizes accepted are n * (p+1), n and p+1. The non given value are deduced.
+        If n values are given, they apply for each neurones. (If one neurones is frozen, all its connections too).
+        If p + 1 values are given, they apply for each input. (If an input is frozen, all its connection too).
+        If one value is given (Booleean). Then all the connection will follow its value.
+
+        If an uncorrect argument is given then :
+        If it has not shape as an attribute, it will cast it in boolean.
+        Otherwise if the sizes in shape doesn't fit, it will raise a ValueError.
+        BUT (CAREFUL) if the sizes in shape are correct,the values aren't tested."""
+
         message = "'fixed' argument can either be one boolean for all the parameters or n booleans, one for each neurone and their connections, or p+1 booleans, one for each input (+bias, give the bias first) and their connections or a matrix of n*(p+1) booleans for each connection"
         try:
             if len(fixed.shape) == 1:
@@ -62,8 +72,8 @@ class Layers:
             else:
                 raise ValueError(message)
         except AttributeError:
-            self.weights_fixed = nd.full(self.weights.shape, fixed, ctx = self.ctx)
-            self.bias_fixed = nd.full(self.bias.shape, fixed, ctx = self.ctx)
+            self.weights_fixed = nd.full(self.weights.shape, bool(fixed), ctx = self.ctx)
+            self.bias_fixed = nd.full(self.bias.shape, bool(fixed), ctx = self.ctx)
 
         self.bias_fixed = self.bias_fixed.astype('int8')
         self.weights_fixed = self.weights_fixed.astype('int8')
@@ -74,12 +84,14 @@ class Layers:
 
 
     def compute(self, input):
-        Z = nd.dot(self.weights, input) + self.bias
+        """Compute the output of the layers given the input.
+        The input has to be a ndarray of shape p or (p, batch_size)."""
+        Z = (nd.dot(self.weights, input).T + self.bias).T
 
         if self.function_is_one:
             return self.function(Z)
         else:
             A = Z.zeros_like()
-            for i in range(len(Z)):
-                for j in range(len(Z[0])): #If input is of shape p * batch_size or of size p it still work
-                    A[i][j] = self.function[i](Z[i][j])
+            for i in range(output_size):
+                A[i] = self.function[i](Z[i])
+            return A
