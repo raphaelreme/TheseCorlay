@@ -3,7 +3,7 @@
 import mxnet as mx
 from mxnet import nd, autograd
 
-from Layers import Layers
+from Layer import Layer
 
 
 class NeuralNet:
@@ -12,91 +12,46 @@ class NeuralNet:
     Can be trained and used on data.
     Can also be stored in file or create from a file"""
 
-    ###########Training characteristics and methods####################
-    nbIter = 50
-    batchSize = 500
+    VERSION = 1.1
+    #nbIter = 50
+    batch_size = 500
 
-    def SE(yhat,y):
+    def squared_error(yhat,y):
         return nd.sum((yhat - y) ** 2)
-    SE = staticmethod(SE)
-
-    ##pourrait etre une methode d'objet
-    def adam(params, vs, sqrs, maximums, lr, batch_size, t):
-        beta1 = 0.9
-        beta2 = 0.999
-        eps_stable = 1e-8
-
-        for param, v, sqr, maximum in zip(params, vs, sqrs, maximums):
-            if param.grad is None:
-                continue
-            g = param.grad / batch_size
-
-            v[:] = beta1 * v + (1. - beta1) * g
-            sqr[:] = beta2 * sqr + (1. - beta2) * nd.square(g)
-
-            v_bias_corr = v / (1. - beta1 ** t)
-            sqr_bias_corr = sqr / (1. - beta2 ** t)
-
-            div = lr * v_bias_corr / (nd.sqrt(sqr_bias_corr) + eps_stable)
-            param[:] = param - div
-            param[:] = nd.where(param > maximum, maximum, param)
-            param[:] = nd.where(param < -maximum, -maximum, param)
+    squared_error = staticmethod(squared_error)
 
 
+    def __init__(self, sizes, fct = nd.sigmoid, maximum = 1, ctx = mx.cpu(0)):
+        assert len(sizes) >= 2 #At least two sizes : the input and output sizes
 
-    adam = staticmethod(adam)
-    ###############################################
-
-
-
-
-    def __init__(self, layersNumber, sizes = None, layers = None, ctx = None, fct = ampliOP, maximum = 1):
-        self.ctx = ctx
-        if ctx:
-            self.ctx = ctx
-
-
-        self.fct = fct
-
-        self.layersNumber = insideLayersNumber
         self.sizes = sizes
-        if sizes == None:
-            #Mettre les
+        self.layersNumber = len(sizes) - 1
 
-        self.params = list()
-        self.maximums = []
-
-        for i in range(self.layersNumber+1):
-            self.params.append(nd.random_normal(loc = 0,scale = 0.05,shape=(self.sizes[i],self.sizes[i+1]),ctx=self.ctx))
-            self.params.append(nd.random.normal(loc = 0,scale = 0.05, shape = (self.sizes[i+1],),ctx=self.ctx))
-            self.maximums.append(nd.array([[maximum for l in range(self.sizes[i+1])] for k in range(self.sizes[i])]))
-            self.maximums.append(nd.array([maximum for l in range(self.sizes[i+1])]))
+        try:
+            assert len(fct) == self.layersNumber, "Function argument has to be one fonction (for all layers) or a function (or a valid set) for each layers"
+        except TypeError:
+            fct = [fct]*self.layersNumber
 
 
-        self.t = 1
-        self.vs = []
-        self.sqrs = []
-
-        for param in self.params:
-            param.attach_grad()
-            self.vs.append(param.zeros_like())
-            self.sqrs.append(param.zeros_like())
-
-        self.lr = 0.001
+        self.layers = []
+        for i in range(self.layersNumber):
+            self.layers.append(Layer(sizes[i+1], sizes[i], function = fct[i], fixed = False, ctx = ctx))
 
 
     def size(self):
         S = 0
-        for param in self.params:
-            S+= param.size
+        for layer in self.layers:
+            S+= layer.size
         return S
 
-    ##Peut etre rajouter une autre methode qui fait le round en sortie
-    def net(self,input):
-        L = input
-        for i in range(self.layersNumber+1):
-            L = self.fct(nd.dot(L,self.params[2*i])+self.params[2*i+1])
-        return L
+
+    def compute(self,input):
+        """Compute the output of the neural net given the input.
+        The input has to be a ndarray of shape input_size or (input_size, N) where N is the batch_size."""
+
+        for layer in self.layers:
+            input = layer.compute(input)
+        return input
 
 
 
@@ -217,30 +172,20 @@ class NeuralNet:
     ##overwrite the file ./file
     def save(self,file):
         with open(file,"w") as f:
-            f.write(self.toString())
+            f.write(self.to_string())
 
-    def toString(self):
-        s = "/Dimension :\n\n"
-        s += str(self.layersNumber) + "\n"
+    def to_string(self):
+        s = "//" + type(self).__name__ + " V" + str(self.VERSION) + "\n\n"
+        s += "//Sizes :\n"
+
         for size in self.sizes:
-            s += str(size) + " "
+            s += str(size) +" "
+        s+= "\n\n"
 
-        G = self.code.G.asnumpy()
-        s += "\n\n/Code :\n"
-        for ligne in G:
-            s+="\n"
-            for value in ligne:
-                s+=str(value) + " "
+        for layer in self.layers:
+            s+= "/LAYER\n"
+            s+= layer.to_string()
 
-
-        s+="\n\n/Parameters :\n"
-
-        for param in self.params:
-            s+="\n"
-            for ligne in param:
-                for value in ligne:
-                    s+= str(value.asnumpy()[0]) + " "
-                s+="\n"
         return s
 
 
@@ -248,38 +193,32 @@ class NeuralNet:
         s = ""
         with open(file,"r") as f:
             s = f.read()
-        return cls.stringToNet(s, ctx = ctx)
+        return cls.from_string(s, ctx = ctx)
     open = classmethod(open)
 
-    def stringToNet(cls, s, ctx = mx.cpu(0)):
-        tab = s.split("\n")
-        tab2 = []
-        for chain in tab:
+    def from_string(cls, s, ctx = mx.cpu(0)):
+        tab = s.split("/LAYER\n")
+        info_net = tab.pop(0)
+
+        tab_net = info_net.split("\n")
+
+        assert tab_net[0] == "//" + cls.__name__ + " V" + str(cls.VERSION), "This file doesn't fit the format (wrong class or wrong version)"
+
+        tab_net2 = []
+        for chain in tab_net:
             if "/" not in chain and chain != "":
-                tab2.append(chain.strip(" "))
+                tab_net2.append(chain.strip(" "))
 
-        insideLayersNumber = int(tab2.pop(0))
         sizes = []
-
-        for chain in tab2.pop(0).split(" "):
+        for chain in tab_net2.pop(0).split(" "):
             sizes.append(int(chain))
-        k = sizes[-1]
-        n = sizes[0]
-        G = nd.array([[0 for j in range(n)] for i in range(k)],ctx=mx.cpu(0))
 
-        for i in range(k):
-            ligne = tab2.pop(0).split(" ")
-            for j in range(n):
-                G[i,j] = float(ligne[j])
+        net = cls(sizes, ctx = ctx)
 
-        code = Code(G, ctx)
-        net = cls(code,insideLayersNumber,sizes[1:-1], ctx)
+        assert net.layersNumber == len(tab), "Number of layers doesn't fit the number of sizes in the file."
 
-        for param in net.params:
-            for ligne in param:
-                ligne_fichier = tab2.pop(0).split(" ")
-                for i in range(len(ligne_fichier)):
-                    ligne[i] = float(ligne_fichier[i])
+        for i in range(net.layersNumber):
+            net.layers[i] = Layer.from_string(tab[i], ctx)
 
         return net
-    stringToNet = classmethod(stringToNet)
+    from_string = classmethod(from_string)
