@@ -19,6 +19,9 @@ def echelon(x):
 def echelonSmooth(x):
     return nd.sigmoid(10*x)
 
+def const(x):
+    return x
+
 
 #import matplotlib.pyplot as plt
 #x = [float(k)/1000 for k in range(-3000,3000)]

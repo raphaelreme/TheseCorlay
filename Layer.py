@@ -17,7 +17,7 @@ class Layer:
     One can also fixed a set of connections for the learning algorithm."""
 
 
-    VERSION = 1.1
+    VERSION = 1.2
 
     def __init__(self, output_size, input_size, function = nd.sigmoid, ctx = mx.cpu(0), fixed = False):
         if output_size < 1 and input_size < 1:
@@ -97,8 +97,8 @@ class Layer:
             self.weights_fixed = nd.full(self.weights.shape, bool(fixed), ctx = self.ctx)
             self.bias_fixed = nd.full(self.bias.shape, bool(fixed), ctx = self.ctx)
 
-        self.bias_fixed = self.bias_fixed.astype('int8')
-        self.weights_fixed = self.weights_fixed.astype('int8')
+        self.bias_fixed = self.bias_fixed.astype('uint8')
+        self.weights_fixed = self.weights_fixed.astype('uint8')
 
 
     def adam_descent(self, batch_size):
@@ -166,7 +166,18 @@ class Layer:
                 s += function.__name__ + " "
             s += "\n\n"
 
-        #Add fixed ?
+        s += "//Fixed bias : \n"
+        for b in self.bias_fixed:
+            s += str(b.asscalar()) + " "
+        s += "\n\n"
+
+        s+= "//Fixed weights :\n"
+        for line in self.weights_fixed:
+            for w in line:
+                s += str(w.asscalar()) + " "
+            s += "\n"
+        s+= "\n"
+        
         return s
 
     def from_string(cls, s, ctx = mx.cpu(0)):
@@ -183,14 +194,14 @@ class Layer:
         output_size = int(sizes[0])
         input_size = int(sizes[1])
 
-        bias = nd.ndarray.array(tab2.pop(0).split(" "))
+        bias = nd.ndarray.array(tab2.pop(0).split(" "), ctx = ctx)
 
         assert bias.shape[0] == output_size, "Wrong dimension for the bias."
 
         weights = nd.full((output_size, input_size), 0, ctx = ctx)
 
         for i in range(output_size):
-            weights[i] = nd.ndarray.array(tab2.pop(0).split(" "))
+            weights[i] = nd.ndarray.array(tab2.pop(0).split(" "), ctx = ctx)
 
         function = tab2.pop(0).split(" ")
         for i in range(len(function)):
@@ -207,11 +218,19 @@ class Layer:
         else:
             assert len(function) == output_size, "Invalid number of function"
 
-        #fixed ?
+        bias_fixed = nd.ndarray.array(tab2.pop(0).split(" "), ctx = ctx, dtype = 'uint8')
+
+        weights_fixed = nd.full((output_size, input_size), 0, ctx = ctx, dtype = 'uint8')
+
+        for i in range(output_size):
+            weights_fixed[i] = nd.ndarray.array(tab2.pop(0).split(" "), ctx = ctx, dtype = 'uint8')
+
         layers = cls(output_size, input_size, function = function, ctx = ctx)
 
         layers.bias = bias
         layers.weights = weights
+        layers.bias_fixed = bias_fixed
+        layers.weights_fixed = weights_fixed
 
         return layers
     from_string = classmethod(from_string)

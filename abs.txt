@@ -1,0 +1,75 @@
+//NeuralNet V1.1
+//Split R2 in two subspace. (x,y) st y>|x| (1) and (x,y) st y<=|x| (0)
+
+
+//Sizes :
+2 3 2 1
+
+/LAYER
+//Layer V1.2
+
+//Sizes :
+3 2
+
+//Bias :
+0 0 0
+
+//Weights :
+1 0
+-1 0
+0 1
+
+//Functions :
+relu relu const
+
+//Fixed bias :
+0 0 0
+
+//Fixed weights :
+0 0
+0 0
+0 0
+
+/LAYER
+//Layer V1.2
+
+//Sizes :
+2 3
+
+//Bias :
+0 0
+
+//Weights :
+1 1 0
+0 0 1
+
+//Functions :
+const
+
+//Fixed bias :
+0 0
+
+//Fixed weights :
+0 0 0
+0 0 0
+
+/LAYER
+//Layer V1.2
+
+//Sizes :
+1 2
+
+//Bias :
+0
+
+//Weights :
+-1 1
+
+//Functions :
+echelon
+
+//Fixed bias :
+0
+
+//Fixed weights :
+0 0
