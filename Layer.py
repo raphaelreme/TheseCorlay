@@ -10,43 +10,36 @@ import activation
 class Layer:
     """One layer of a neural net.
 
-    Has a n neurones (size of the output) and the p inputs.
-    There is therefore n(p+1) parameters (weigths + bias).
+    Has a output_size neurones and input_size inputs.
+    There is therefore output_size x (input_size+1) parameters (weights + bias).
 
     One can precise each activation function for each neurone.
-    One can also fixed a set of connections for the learning algorithm."""
+    One can also fixed a set of connections for the learning algorithm.
+    If no weights/bias are given they are choosen randomly."""
 
 
-    VERSION = 1.2
+    VERSION = 1.3
+    decoding_class = "Layer"
 
-    def __init__(self, output_size, input_size, function = nd.sigmoid, ctx = mx.cpu(0), fixed = False):
+    def __init__(self, output_size, input_size, weights = None, bias = None, function = nd.sigmoid, ctx = mx.cpu(0), fixed = False):
         if output_size < 1 and input_size < 1:
             raise ValueError("Sizes must be positive integer")
 
         self.output_size = output_size
         self.input_size = input_size
-        self.size = output_size * (input_size + 1) #Number of parameters
+        self.total_size = output_size * (input_size + 1) #Number of parameters
 
         self.ctx = ctx
 
-        self.weights = nd.random.normal(loc = 0, scale = 1, shape = (output_size, input_size), ctx = self.ctx)
-        self.bias = nd.random.normal(loc = 0, scale = 1, shape = output_size, ctx = self.ctx)
-
-
-        ###############################
-        ###### Compute functions ######
+        ######################################
+        ###### Set all the parameters ########
+        self.set_bias(bias)
+        self.set_weights(weights)
         self.set_function(function)
-
-
-        ###########################################
-        ###### Compute the fixed parameters #######
         self.set_fixed(fixed)
 
         ######################################
         ###### Prepare gradient descent ######
-        self.bias.attach_grad()
-        self.weights.attach_grad()
-
         self.t = 1
         self.lr = 0.001
 
@@ -54,6 +47,29 @@ class Layer:
         self.sqr_bias = self.bias.zeros_like()
         self.v_weights = self.weights.zeros_like()
         self.sqr_weights = self.weights.zeros_like()
+
+    def set_bias(bias = None):
+        """Set the bias, if none is given, set them randomly.
+        (Also attach the gradient to the bias)"""
+
+        if bias:
+            assert bias.shape == (self.output_size,), "Wrong shape : Should be (output_size,)."
+            self.bias = bias.copyto(self.ctx)
+        else:
+            self.bias = nd.random.normal(loc = 0, scale = 1, shape = self.output_size, ctx = self.ctx)
+        self.bias.attach_grad()
+
+    def set_weights(weights = None):
+        """Set the weights, if none si given then set them randomly.
+        (Also attach the gradient to the weights)"""
+
+        if weights:
+            assert weights.shape == (self.output_size, self.input_size), "Wrong shape : Should be (output_size, input_size)."
+            self.weights = weights.copyto(self.ctx)
+        else:
+            self.weights = nd.random.normal(loc = 0, scale = 1, shape = (self.output_size, self.input_size), ctx = self.ctx)
+        self.weights.attach_grad()
+
 
     def set_function(self, function):
         try:
@@ -68,14 +84,14 @@ class Layer:
 
     def set_fixed(self, fixed):
         """Fixed has to be a boolean or a ndarray. The sizes accepted are n * (p+1), n and p+1. The non given value are deduced.
-        If n values are given, they apply for each neurones. (If one neurones is frozen, all its connections too).
-        If p + 1 values are given, they apply for each input. (If an input is frozen, all its connection too).
-        If one value is given (Booleean). Then all the connection will follow its value.
+        If n values are given, they apply for each neurones. (If one neurones is fixed, all its connections too).
+        If p + 1 values are given, they apply for each input. (If an input is pixed, all its connections too).
+        If a boolean is given, then all the connections will follow its value.
 
         If an uncorrect argument is given then :
         If it has not shape as an attribute, it will cast it in boolean.
         Otherwise if the sizes in shape doesn't fit, it will raise a ValueError.
-        BUT (CAREFUL) if the sizes in shape are correct,the values aren't tested."""
+        BUT (CAREFUL) if the shape is correct, the values aren't tested."""
 
         message = "'fixed' argument can either be one boolean for all the parameters or n booleans, one for each neurone and their connections, or p+1 booleans, one for each input (+bias, give the bias first) and their connections or a matrix of n*(p+1) booleans for each connection"
         try:
@@ -141,7 +157,7 @@ class Layer:
             return A
 
     def to_string(self):
-        s = "//" + type(self).__name__ + " V" + str(self.VERSION) + "\n\n"
+        s = "//" + type(self).decoding_class + " V" + str(type(self).VERSION) + "\n\n"
 
         s += "//Sizes :\n"
         s += str(self.output_size) + " " + str(self.input_size) + "\n\n"
@@ -177,7 +193,7 @@ class Layer:
                 s += str(w.asscalar()) + " "
             s += "\n"
         s+= "\n"
-        
+
         return s
 
     def from_string(cls, s, ctx = mx.cpu(0)):
