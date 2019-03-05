@@ -40,35 +40,25 @@ class Layer:
 
         ######################################
         ###### Prepare gradient descent ######
-        self.t = 1
-        self.lr = 0.001
+        self.init_grad()
 
-        self.v_bias = self.bias.zeros_like()
-        self.sqr_bias = self.bias.zeros_like()
-        self.v_weights = self.weights.zeros_like()
-        self.sqr_weights = self.weights.zeros_like()
+    def set_bias(self, bias = None):
+        """Set the bias, if none is given, set them randomly."""
 
-    def set_bias(bias = None):
-        """Set the bias, if none is given, set them randomly.
-        (Also attach the gradient to the bias)"""
-
-        if bias:
+        if bias is not None:
             assert bias.shape == (self.output_size,), "Wrong shape : Should be (output_size,)."
             self.bias = bias.copyto(self.ctx)
         else:
             self.bias = nd.random.normal(loc = 0, scale = 1, shape = self.output_size, ctx = self.ctx)
-        self.bias.attach_grad()
 
-    def set_weights(weights = None):
-        """Set the weights, if none si given then set them randomly.
-        (Also attach the gradient to the weights)"""
+    def set_weights(self, weights = None):
+        """Set the weights, if none si given then set them randomly."""
 
-        if weights:
+        if weights is not None:
             assert weights.shape == (self.output_size, self.input_size), "Wrong shape : Should be (output_size, input_size)."
             self.weights = weights.copyto(self.ctx)
         else:
             self.weights = nd.random.normal(loc = 0, scale = 1, shape = (self.output_size, self.input_size), ctx = self.ctx)
-        self.weights.attach_grad()
 
 
     def set_function(self, function):
@@ -115,6 +105,18 @@ class Layer:
 
         self.bias_fixed = self.bias_fixed.astype('uint8')
         self.weights_fixed = self.weights_fixed.astype('uint8')
+
+    def init_grad(self):
+        self.bias.attach_grad()
+        self.weights.attach_grad()
+
+        self.t = 1
+        self.lr = 0.001
+
+        self.v_bias = self.bias.zeros_like()
+        self.sqr_bias = self.bias.zeros_like()
+        self.v_weights = self.weights.zeros_like()
+        self.sqr_weights = self.weights.zeros_like()
 
 
     def adam_descent(self, batch_size):
@@ -241,10 +243,8 @@ class Layer:
         for i in range(output_size):
             weights_fixed[i] = nd.ndarray.array(tab2.pop(0).split(" "), ctx = ctx, dtype = 'uint8')
 
-        layers = cls(output_size, input_size, function = function, ctx = ctx)
+        layers = cls(output_size, input_size, bias = bias, weights = weights, function = function, ctx = ctx)
 
-        layers.bias = bias
-        layers.weights = weights
         layers.bias_fixed = bias_fixed
         layers.weights_fixed = weights_fixed
 
