@@ -111,7 +111,6 @@ class Layer:
         self.weights.attach_grad()
 
         self.t = 1
-        self.lr = 0.001
 
         self.v_bias = self.bias.zeros_like()
         self.sqr_bias = self.bias.zeros_like()
@@ -119,7 +118,7 @@ class Layer:
         self.sqr_weights = self.weights.zeros_like()
 
 
-    def adam_descent(self, batch_size):
+    def adam_descent(self, batch_size = 32, lr = 0.001):
         beta1 = 0.9
         beta2 = 0.999
         eps_stable = 1e-8
@@ -129,9 +128,9 @@ class Layer:
         self.sqr_bias = beta2 * self.sqr_bias + (1. - beta2) * nd.square(g)
         v_bias_corr = self.v_bias/(1. - beta1**self.t)
         sqr_bias_corr = self.sqr_bias/(1. - beta2**self.t)
-        div = self.lr * v_bias_corr/(nd.sqrt(sqr_bias_corr) + eps_stable)
+        div = lr * v_bias_corr/(nd.sqrt(sqr_bias_corr) + eps_stable)
 
-        self.bias = self.bias - (1 - self.bias_fixed) * div
+        self.bias[:] = self.bias - (1 - self.bias_fixed).astype("float32") * div
         #self.bias = nd.where(self.bias > maximum, maximum, self.bias)
         #self.bias = nd.where(self.bias < -maximum, -maximum, self.bias)
 
@@ -140,9 +139,11 @@ class Layer:
         self.sqr_weights = beta2 * self.sqr_weights + (1. - beta2) * nd.square(g)
         v_bias_corr = self.v_weights/(1. - beta1**self.t)
         sqr_bias_corr = self.sqr_weights/(1. - beta2**self.t)
-        div = self.lr * v_bias_corr/(nd.sqrt(sqr_bias_corr) + eps_stable)
+        div = lr * v_bias_corr/(nd.sqrt(sqr_bias_corr) + eps_stable)
 
-        self.weights = self.weights - (1-self.weights_fixed) * div
+        self.weights[:] = self.weights - (1-self.weights_fixed).astype("float32") * div
+
+        self.t += 1
 
 
     def compute(self, input):

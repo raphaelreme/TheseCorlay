@@ -7,7 +7,10 @@ from Layer import Layer
 
 def compute_rot(v):
     """Return the rotationnal matrix M so that M.v = ||v||e1."""
-    M = nd.eye(len(v)) * v[0]/nd.abs(v[0])
+    if v[0] >= 0:
+        M = nd.eye(len(v))
+    else:
+        M = - nd.eye(len(v))
     for i in range(1, len(v)):
         if v[i] == 0:
             continue
@@ -81,6 +84,69 @@ class NeuralNet:
             input = layer.compute(input)
         return input
 
+    def train(self, inputs, outputs, epochs = 10, batch_size = 32, lr = 0.001, transform = None, verbose = True):
+        """train the neural network to fit the outputs with the inputs.
+
+        Args:
+            inputs: an ndarray of input.
+            outputs: an ndarray of outputs.
+            epochs, batch_size, lr: the parameters of the learning algorithm.
+            transform: if None, take the output as given, else try to compute
+                        transformed outputs = transform(outputs) and fit with them.
+            verbose: If True then the results will be displayed all along the training.
+        Returns:
+            The historical of the training. (tuple of array)."""
+
+        if transform:
+            outputs = transform(outputs)
+        n = (inputs.shape[1]-1)//batch_size + 1
+
+        #inputs-1/batch - 1 < n <= inputs-1/batch
+        if len(outputs.shape) == 1:
+            outputs = outputs.reshape((1, outputs.shape[0]))
+        assert inputs.shape[1] == outputs.shape[1], "Shapes does not match."
+
+        data = nd.concat(inputs.T, outputs.T)
+
+        efficiencies = []
+        cumuLosses = []
+        epochs = list(range(epochs))
+
+        for i in epochs:
+            efficiency = 0
+            cumuLoss = 0
+            data = nd.shuffle(data)
+            batchs = [data[k*batch_size:min(inputs.shape[1], (k+1)*batch_size),:] for k in range(n)]
+            for batch in batchs:
+                with autograd.record():
+                    output = self.compute(batch[:, :inputs.shape[0]].T)
+                    loss = NeuralNet.squared_error(output, batch[:, inputs.shape[0]:].T)
+                loss.backward()
+
+                self.adam_descent(batch_size, lr)
+
+                cumuLoss += loss.asscalar()
+                efficiency += nd.sum(nd.equal(output, batch[:, inputs.shape[0]:].T)).asscalar()
+
+
+            efficiency /= outputs.shape[1] * outputs.shape[0]
+            efficiencies.append(efficiency)
+
+            cumuLoss /= outputs.shape[1] * outputs.shape[0]
+            cumuLosses.append(cumuLoss)
+
+            if verbose:
+                print("Epochs %d: Pe = %lf , loss = %lf" % (i,1-efficiency,cumuLoss))
+
+        return (epochs, cumuLosses, efficiencies)
+
+    def init_train(self):
+        for layer in self.layers:
+            layer.init_grad()
+
+    def adam_descent(self, batch_size = 32, lr = 0.001):
+        for layer in self.layers:
+            layer.adam_descent(batch_size, lr)
 
 
     def save(self,file):
