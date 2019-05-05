@@ -33,7 +33,9 @@ class NeuralNet:
     """Represent a neural network able to correct a code.
 
     Can be trained and used on data.
-    Can also be stored in file or create from a file"""
+    Can also be stored in file or create from a file
+
+    ctx parameter isn't really implemented yet"""
 
     VERSION = 1.2
     decoding_class = "NeuralNet"
@@ -63,6 +65,14 @@ class NeuralNet:
         else:
             for i in range(self.layersNumber):
                 self.set_layer(Layer(sizes[i+1], sizes[i], ctx = ctx), i)
+
+    def __add__(self, other):
+        if not isinstance(other, NeuralNet):
+            raise TypeError("Unsupported type for operand + :", type(self), type(other))
+        assert self.sizes[-1] == other.sizes[0], "Sizes doesn't match."
+        layers = self.layers + other.layers
+        sizes = self.sizes + other.sizes[1:]
+        return NeuralNet(sizes, layers)
 
     def set_layer(self, layer, i):
         assert i < self.layersNumber, "Wrong index. Must be between 0 and layersNumber-1."
@@ -125,6 +135,7 @@ class NeuralNet:
 
                 self.adam_descent(batch_size, lr)
 
+                output = nd.round(output)
                 cumuLoss += loss.asscalar()
                 efficiency += nd.sum(nd.equal(output, batch[:, inputs.shape[0]:].T)).asscalar()
 

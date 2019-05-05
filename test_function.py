@@ -6,6 +6,13 @@ import matplotlib
 import matplotlib.pyplot as plt
 # import numpy as np
 
+def triangle(input):
+    x = nd.abs(input[0])
+    x_floor = nd.floor(x)
+    x = nd.where(nd.modulo(x_floor, 2), 1 - x + x_floor, x - x_floor)
+    return input[1] - x > 0
+
+
 def test_triangle(n, norm_vect):
     sym = []
 
