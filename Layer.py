@@ -75,7 +75,7 @@ class Layer:
     def set_fixed(self, fixed):
         """Fixed has to be a boolean or a ndarray. The sizes accepted are n * (p+1), n and p+1. The non given value are deduced.
         If n values are given, they apply for each neurones. (If one neurones is fixed, all its connections too).
-        If p + 1 values are given, they apply for each input. (If an input is pixed, all its connections too).
+        If p + 1 values are given, they apply for each input. (If an input is fixed, all its connections too).
         If a boolean is given, then all the connections will follow its value.
 
         If an uncorrect argument is given then :
@@ -149,14 +149,19 @@ class Layer:
     def compute(self, input):
         """Compute the output of the layers given the input.
         The input has to be a ndarray of shape p or (p, batch_size)."""
-        Z = (nd.dot(self.weights, input).T + self.bias).T
+        if len(input.shape) == 1:
+            input = input.reshape((input.shape[0], 1))
+
+        Z = (nd.dot(self.weights, input).T + self.bias).T # size (n, batch_size)
 
         if self.function_is_one:
             return self.function(Z)
         else:
-            A = Z.zeros_like()
-            for i in range(self.output_size):
-                A[i] = self.function[i](Z[i])
+            #A = Z.zeros_like()
+            A = self.function[0](Z[0]).reshape((1, input.shape[1]))
+            for i in range(1, self.output_size):
+                #A[i] = self.function[i](Z[i])
+                A = nd.concat(A, self.function[i](Z[i]).reshape((1, input.shape[1])), dim = 0)
             return A
 
     def to_string(self):
