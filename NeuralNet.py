@@ -30,17 +30,15 @@ def compute_rot(v):
     return M
 
 class NeuralNet:
-    """Represent a neural network able to correct a code.
+    """Represent a neural network fully connected.
 
     Can be trained and used on data.
     Can also be stored in file or create from a file
 
-    ctx parameter isn't really implemented yet"""
+    CAREFUL : ctx parameter isn't really implemented yet"""
 
     VERSION = 1.2
     decoding_class = "NeuralNet"
-    #nbIter = 50
-    batch_size = 500
 
     def squared_error(yhat,y):
         return nd.sum((yhat - y) ** 2)
