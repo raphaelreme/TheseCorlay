@@ -226,11 +226,11 @@ class SymNet:
 
         s+= "\n\n//Thetas fixed :\n"
         for theta in self.thetas_fixed:
-            s += str(theta) + " "
+            s += str(int(theta)) + " "
 
         s+= "\n\n//Biases fixed:\n"
         for bias in self.biases_fixed:
-            s += str(bias) + " "
+            s += str(int(bias)) + " "
 
         return s
 
